@@ -61,8 +61,12 @@ public class Main {
     }
 
     static void successResponseHandler(String body, OutputStream writer) throws IOException {
-        String httpSuccessResponseWithBody = "HTTP/1.1 200 OK\\r\\nContent-Type: text/plain\\r\\nContent-Length: 3\r\n\r\n" + body;
-        writer.write(httpSuccessResponseWithBody.getBytes());
+        byte[] bodyBytes = body.getBytes(StandardCharsets.UTF_8);
+        String httpSuccessResponseWithBody = "HTTP/1.1 200 OK\r\n" +
+                "Content-Type: text/plain\r\n" +
+                "Content-Length: " + bodyBytes.length + "\r\n\r\n";
+        writer.write(httpSuccessResponseWithBody.getBytes(StandardCharsets.UTF_8));
+        writer.write(bodyBytes);
         writer.flush();
     }
 

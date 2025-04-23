@@ -82,6 +82,8 @@ public class Main {
             } else if (requestTarget.startsWith("/echo/")) {
                 String body = requestTarget.replace("/echo/", "");
                 successResponseHandler(body, writer);
+            } else {
+                notFoundResponseHandler(writer);
             }
         }
     }

@@ -25,29 +25,14 @@ public class Main {
             BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
             String requestLine = bufferedReader.readLine();
 
-            String httpSuccessResponse = "HTTP/1.1 200 OK\r\n\r\n";
-            String httpFailureResponse = "HTTP/1.1 404 Not Found\r\n\r\n";
             OutputStream outputStream = clientSocket.getOutputStream();
 
-            if (requestLine != null && !requestLine.isEmpty()) {
-                System.out.println("Request line recieved: " + requestLine);
-                String[] parts = requestLine.split(" ");
-                if (parts.length >= 2) {
-                    String method = parts[0];
-                    String requestTarget = parts[1];
-                    if (requestTarget != null && requestTarget.equals("/")) {
-                        outputStream.write(httpSuccessResponse.getBytes(StandardCharsets.UTF_8));
-                        outputStream.flush();
-                    } else {
-                        outputStream.write(httpFailureResponse.getBytes(StandardCharsets.UTF_8));
-                        outputStream.flush();
-                    }
-                }
+            if (requestLine == null || requestLine.isEmpty()) {
+                notFoundResponseHandler(outputStream);
             } else {
-                outputStream.write(httpFailureResponse.getBytes(StandardCharsets.UTF_8));
-                outputStream.flush();
+                responseHandler(requestLine, outputStream);
             }
-            
+
             System.out.println("accepted new connection");
         } catch (IOException e) {
             System.out.println("IOException: " + e.getMessage());
@@ -59,6 +44,40 @@ public class Main {
                 } catch (IOException e) {
                     System.out.println("IOException: " + e.getMessage());
                 }
+            }
+        }
+    }
+
+    static void successResponseHandler(OutputStream writer) throws IOException {
+        String httpSuccessResponse = "HTTP/1.1 200 OK\r\n\r\n";
+        writer.write(httpSuccessResponse.getBytes(StandardCharsets.UTF_8));
+        writer.flush();
+    }
+
+    static void notFoundResponseHandler(OutputStream writer) throws IOException {
+        String httpNotFoundResponse = "HTTP/1.1 404 Not Found\r\n\r\n";
+        writer.write(httpNotFoundResponse.getBytes(StandardCharsets.UTF_8));
+        writer.flush();
+    }
+
+    static void successResponseHandler(String body, OutputStream writer) throws IOException {
+        String httpSuccessResponseWithBody = "HTTP/1.1 200 OK\\r\\nContent-Type: text/plain\\r\\nContent-Length: 3\r\n\r\n" + body;
+        writer.write(httpSuccessResponseWithBody.getBytes());
+        writer.flush();
+    }
+
+    static void responseHandler(String requestLine, OutputStream writer) throws IOException {
+        String[] parts = requestLine.split(" ");
+        if (parts.length >= 2) {
+            String method = parts[0];
+            String requestTarget = parts[1];
+            if (requestTarget == null) {
+                notFoundResponseHandler(writer);
+            } else if (requestTarget.equals("/")) {
+                successResponseHandler(writer);
+            } else if (requestTarget.startsWith("/echo/")) {
+                String body = requestTarget.replace("/echo/", "");
+                successResponseHandler(body, writer);
             }
         }
     }

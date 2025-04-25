@@ -89,7 +89,11 @@ public class ResponseHandler implements Runnable {
             } else if (requestTarget.startsWith("/files/") && !requestTarget.replace("/files/","").isEmpty()) {
                 String fileName = requestTarget.replace("/files/", "");
                 Path filePath = Paths.get("/tmp/"+fileName);
-                String fileContents = Files.readString(filePath);
+                if (Files.notExists(filePath)) {
+                    this.notFoundResponseHandler();
+                    return;
+                }
+                String fileContents = Files.readString(filePath)  ;
                 this.successResponseHandler(fileContents, "application/octet-stream");
             } else {
                 this.notFoundResponseHandler();

@@ -11,10 +11,12 @@ public class ResponseHandler implements Runnable {
 
     BufferedReader reader;
     OutputStream writer;
+    String directoryPath;
 
-    public ResponseHandler(BufferedReader reader, OutputStream writer) {
+    public ResponseHandler(BufferedReader reader, OutputStream writer, String directoryPath) {
         this.reader = reader;
         this.writer = writer;
+        this.directoryPath = directoryPath;
     }
 
     @Override
@@ -88,7 +90,7 @@ public class ResponseHandler implements Runnable {
                 this.successResponseHandler(header, "text/plain");
             } else if (requestTarget.startsWith("/files/") && !requestTarget.replace("/files/","").isEmpty()) {
                 String fileName = requestTarget.replace("/files/", "");
-                Path filePath = Paths.get("/tmp/"+fileName);
+                Path filePath = Paths.get(this.directoryPath+fileName);
                 if (Files.notExists(filePath)) {
                     this.notFoundResponseHandler();
                     return;

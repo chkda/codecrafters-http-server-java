@@ -11,9 +11,17 @@ public class Main {
         Socket clientSocket = null;
         ServerSocket serverSocket = null;
 
+
         // Uncomment this block to pass the first stage
 
         try {
+            String directory = null;
+            for (int i=0 ; i< args.length; i++) {
+                if (args[i].equals("--directory")) {
+                    directory = args[i+1];
+                }
+            }
+
             serverSocket = new ServerSocket(4221);
 
             // Since the tester restarts your program quite often, setting SO_REUSEADDR
@@ -28,7 +36,7 @@ public class Main {
 
                 OutputStream outputStream = clientSocket.getOutputStream();
 
-                ResponseHandler responseHandler = new ResponseHandler(bufferedReader, outputStream);
+                ResponseHandler responseHandler = new ResponseHandler(bufferedReader, outputStream, directory);
 
                 Thread handlerThread = new Thread(responseHandler);
                 handlerThread.start();

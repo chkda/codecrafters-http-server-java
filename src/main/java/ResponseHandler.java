@@ -69,7 +69,7 @@ public class ResponseHandler implements Runnable {
 
     void responseHandler() {
         try {
-            String requestLine = reader.readLine();
+            String requestLine = this.reader.readLine();
             if (requestLine == null || requestLine.isEmpty()) {
                 this.notFoundResponseHandler();
                 return;
@@ -84,12 +84,33 @@ public class ResponseHandler implements Runnable {
             String method = parts[0];
             String requestTarget = parts[1];
             HashMap<String, String> headers = this.extractHeaders();
-            String requestBody = reader.readLine();
-//            System.out.println("---------------Here----------------");
+            String requestBody = null;
+            String contentLengthHeader = headers.get("content-length");
+            int contentLength = 0;
+
+            if (contentLengthHeader != null) {
+                try {
+                    contentLength = Integer.parseInt(contentLengthHeader);
+                } catch (NumberFormatException e) {
+                    this.notFoundResponseHandler();
+                    return;
+                }
+            }
+
+            if (method.equals("POST") && contentLength > 0) {
+                char[] bodyChars = new char[contentLength];
+                int charsRead = this.reader.read(bodyChars, 0, contentLength);
+                if (charsRead == contentLength) {
+                    requestBody = new String(bodyChars);
+                } else {
+                    this.notFoundResponseHandler();
+                    return;
+                }
+            }
+
             if (requestTarget == null) {
                 this.notFoundResponseHandler();
             } else if (requestTarget.equals("/")) {
-//                System.out.println("---------------Here----------------");
                 this.successResponseHandler();
             } else if (requestTarget.startsWith("/echo/")) {
                 String endpoint = requestTarget.replace("/echo/", "");

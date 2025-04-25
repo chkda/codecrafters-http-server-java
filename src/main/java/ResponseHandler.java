@@ -46,6 +46,12 @@ public class ResponseHandler implements Runnable {
         this.writer.flush();
     }
 
+    void createdResponseHandler() throws IOException {
+        String httpCreatedResponse = "HTTP/1.1 201 Created\r\n\r\n";
+        this.writer.write(httpCreatedResponse.getBytes(StandardCharsets.UTF_8));
+        this.writer.flush();
+    }
+
     HashMap<String, String> extractHeaders() throws IOException {
         String headerline = this.reader.readLine();
         HashMap<String, String> hashMap = new HashMap<>();
@@ -77,10 +83,13 @@ public class ResponseHandler implements Runnable {
 
             String method = parts[0];
             String requestTarget = parts[1];
-            HashMap<String, String> headers = extractHeaders();
+            HashMap<String, String> headers = this.extractHeaders();
+            String requestBody = reader.readLine();
+//            System.out.println("---------------Here----------------");
             if (requestTarget == null) {
                 this.notFoundResponseHandler();
             } else if (requestTarget.equals("/")) {
+//                System.out.println("---------------Here----------------");
                 this.successResponseHandler();
             } else if (requestTarget.startsWith("/echo/")) {
                 String endpoint = requestTarget.replace("/echo/", "");
@@ -88,20 +97,36 @@ public class ResponseHandler implements Runnable {
             } else if (requestTarget.equals("/user-agent") && headers.containsKey("user-agent")) {
                 String header = headers.get("user-agent");
                 this.successResponseHandler(header, "text/plain");
-            } else if (requestTarget.startsWith("/files/") && !requestTarget.replace("/files/","").isEmpty()) {
+            } else if (requestTarget.startsWith("/files/") && !requestTarget.replace("/files/", "").isEmpty()) {
                 String fileName = requestTarget.replace("/files/", "");
-                Path filePath = Paths.get(this.directoryPath+fileName);
-                if (Files.notExists(filePath)) {
-                    this.notFoundResponseHandler();
-                    return;
+                if (method.equals("GET")) {
+                    this.getFileContents(fileName);
+                } else if (method.equals("POST") && requestBody != null) {
+                    this.createFile(fileName, requestBody);
                 }
-                String fileContents = Files.readString(filePath)  ;
-                this.successResponseHandler(fileContents, "application/octet-stream");
             } else {
                 this.notFoundResponseHandler();
             }
         } catch (IOException e) {
             System.out.println("IOException: " + e.getMessage());
         }
+    }
+
+    void getFileContents(String fileName) throws IOException {
+        Path filePath = Paths.get(this.directoryPath + fileName);
+        if (Files.notExists(filePath)) {
+            this.notFoundResponseHandler();
+            return;
+        }
+        String fileContents = Files.readString(filePath);
+        this.successResponseHandler(fileContents, "application/octet-stream");
+    }
+
+    void createFile(String filename, String fileContents) throws IOException {
+        Path filePath = Paths.get(this.directoryPath + filename);
+        Files.deleteIfExists(filePath);
+        Files.createFile(filePath);
+        Files.writeString(filePath, fileContents);
+        this.createdResponseHandler();
     }
 }

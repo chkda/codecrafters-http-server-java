@@ -5,7 +5,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
-import java.util.logging.SocketHandler;
 import java.util.zip.GZIPOutputStream;
 
 public class ResponseHandler implements Runnable {
@@ -23,14 +22,15 @@ public class ResponseHandler implements Runnable {
     @Override
     public void run() {
         try {
-            while (true) {
+            boolean keepAlive = true;
+            while (keepAlive) {
                 InputStream inputStream = this.clientSocket.getInputStream();
                 InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
                 BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
                 OutputStream outputStream = this.clientSocket.getOutputStream();
                 this.reader = bufferedReader;
                 this.writer = outputStream;
-                this.responseHandler();
+                keepAlive = this.responseHandler();
             }
         } catch (IOException e) {
             System.out.println("IOException: " + e.getMessage());
@@ -102,25 +102,32 @@ public class ResponseHandler implements Runnable {
         return hashMap;
     }
 
-    void responseHandler() throws IOException {
+    boolean responseHandler() throws IOException {
 
         String requestLine = this.reader.readLine();
         if (requestLine == null || requestLine.isEmpty()) {
             this.notFoundResponseHandler();
-            return;
+            return false;
         }
 
         String[] parts = requestLine.split(" ");
         if (parts.length < 2) {
             this.notFoundResponseHandler();
-            return;
+            return false;
         }
 
         String method = parts[0];
         String requestTarget = parts[1];
         HashMap<String, String> headers = this.extractHeaders();
+        String connectionHeader = headers.get("connection");
+        boolean keepAlive = !(connectionHeader != null && connectionHeader.equals("close")) ;
+
         String encodingHeader = headers.get("accept-encoding");
         String encoding = null;
+
+        String requestBody = null;
+        String contentLengthHeader = headers.get("content-length");
+        int contentLength = 0;
 
         if (encodingHeader != null) {
             String[] encodings = encodingHeader.replace(" ", "").split(",");
@@ -131,16 +138,14 @@ public class ResponseHandler implements Runnable {
                 }
             }
         }
-        String requestBody = null;
-        String contentLengthHeader = headers.get("content-length");
-        int contentLength = 0;
+
 
         if (contentLengthHeader != null) {
             try {
                 contentLength = Integer.parseInt(contentLengthHeader);
             } catch (NumberFormatException e) {
                 this.notFoundResponseHandler();
-                return;
+                return keepAlive;
             }
         }
 
@@ -151,7 +156,7 @@ public class ResponseHandler implements Runnable {
                 requestBody = new String(bodyChars);
             } else {
                 this.notFoundResponseHandler();
-                return;
+                return keepAlive;
             }
         }
 
@@ -171,7 +176,7 @@ public class ResponseHandler implements Runnable {
                 String fileContents = this.getFileContents(fileName);
                 if (fileContents == null) {
                     this.notFoundResponseHandler();
-                    return;
+                    return keepAlive;
                 }
                 this.successResponseHandler(fileContents, "application/octet-stream", encoding);
             } else if (method.equals("POST") && requestBody != null) {
@@ -181,6 +186,9 @@ public class ResponseHandler implements Runnable {
         } else {
             this.notFoundResponseHandler();
         }
+
+
+        return keepAlive;
 
     }
 

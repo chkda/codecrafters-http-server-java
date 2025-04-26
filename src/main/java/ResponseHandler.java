@@ -48,18 +48,22 @@ public class ResponseHandler implements Runnable {
     }
 
     void successResponseHandler(boolean connAlive) throws IOException {
-        String httpSuccessResponse = "HTTP/1.1 200 OK\r\n\r\n";
+        String httpSuccessResponse = "HTTP/1.1 200 OK\r\n";
         if (connAlive) {
             httpSuccessResponse += "Connection: close\r\n";
+        } else {
+            httpSuccessResponse += "\r\n";
         }
         this.writer.write(httpSuccessResponse.getBytes(StandardCharsets.UTF_8));
         this.writer.flush();
     }
 
     void notFoundResponseHandler(boolean connAlive) throws IOException {
-        String httpNotFoundResponse = "HTTP/1.1 404 Not Found\r\n\r\n";
+        String httpNotFoundResponse = "HTTP/1.1 404 Not Found\r\n";
         if (connAlive) {
             httpNotFoundResponse += "Connection: close\r\n";
+        } else {
+            httpNotFoundResponse += "\r\n";
         }
         this.writer.write(httpNotFoundResponse.getBytes(StandardCharsets.UTF_8));
         this.writer.flush();

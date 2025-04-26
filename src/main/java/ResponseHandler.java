@@ -47,14 +47,20 @@ public class ResponseHandler implements Runnable {
 //        this.responseHandler();
     }
 
-    void successResponseHandler() throws IOException {
-        String httpSuccessResponse = "HTTP/1.1 200 OK\r\n\r\n";
+    void successResponseHandler(boolean connAlive) throws IOException {
+        String httpSuccessResponse = "HTTP/1.1 200 OK\r\n";
+        if (connAlive) {
+            httpSuccessResponse += "Connection: close\r\n";
+        }
         this.writer.write(httpSuccessResponse.getBytes(StandardCharsets.UTF_8));
         this.writer.flush();
     }
 
-    void notFoundResponseHandler() throws IOException {
-        String httpNotFoundResponse = "HTTP/1.1 404 Not Found\r\n\r\n";
+    void notFoundResponseHandler(boolean connAlive) throws IOException {
+        String httpNotFoundResponse = "HTTP/1.1 404 Not Found\r\n";
+        if (connAlive) {
+            httpNotFoundResponse += "Connection: close\r\n";
+        }
         this.writer.write(httpNotFoundResponse.getBytes(StandardCharsets.UTF_8));
         this.writer.flush();
     }
@@ -67,10 +73,13 @@ public class ResponseHandler implements Runnable {
         return byteArrayOutputStream.toByteArray();
     }
 
-    void successResponseHandler(String body, String contentType, String encoding) throws IOException {
+    void successResponseHandler(String body, String contentType, String encoding, boolean connAlive) throws IOException {
         byte[] bodyBytes = body.getBytes(StandardCharsets.UTF_8);
         String httpSuccessResponseWithBody = "HTTP/1.1 200 OK\r\n" +
                 "Content-Type: " + contentType + "\r\n";
+        if (connAlive) {
+            httpSuccessResponseWithBody += "Connection: close\r\n";
+        }
         if (encoding != null && encoding.equals("gzip")) {
             httpSuccessResponseWithBody += "Content-Encoding: gzip" + "\r\n";
             bodyBytes = this.gzipEncode(body);
@@ -106,13 +115,13 @@ public class ResponseHandler implements Runnable {
 
         String requestLine = this.reader.readLine();
         if (requestLine == null || requestLine.isEmpty()) {
-            this.notFoundResponseHandler();
+            this.notFoundResponseHandler(false);
             return false;
         }
 
         String[] parts = requestLine.split(" ");
         if (parts.length < 2) {
-            this.notFoundResponseHandler();
+            this.notFoundResponseHandler(false);
             return false;
         }
 
@@ -144,7 +153,7 @@ public class ResponseHandler implements Runnable {
             try {
                 contentLength = Integer.parseInt(contentLengthHeader);
             } catch (NumberFormatException e) {
-                this.notFoundResponseHandler();
+                this.notFoundResponseHandler(false);
                 return keepAlive;
             }
         }
@@ -155,36 +164,36 @@ public class ResponseHandler implements Runnable {
             if (charsRead == contentLength) {
                 requestBody = new String(bodyChars);
             } else {
-                this.notFoundResponseHandler();
+                this.notFoundResponseHandler(keepAlive);
                 return keepAlive;
             }
         }
 
         if (requestTarget == null) {
-            this.notFoundResponseHandler();
+            this.notFoundResponseHandler(keepAlive);
         } else if (requestTarget.equals("/")) {
-            this.successResponseHandler();
+            this.successResponseHandler(keepAlive);
         } else if (requestTarget.startsWith("/echo/")) {
             String endpoint = requestTarget.replace("/echo/", "");
-            this.successResponseHandler(endpoint, "text/plain", encoding);
+            this.successResponseHandler(endpoint, "text/plain", encoding, keepAlive);
         } else if (requestTarget.equals("/user-agent") && headers.containsKey("user-agent")) {
             String header = headers.get("user-agent");
-            this.successResponseHandler(header, "text/plain", encoding);
+            this.successResponseHandler(header, "text/plain", encoding, keepAlive);
         } else if (requestTarget.startsWith("/files/") && !requestTarget.replace("/files/", "").isEmpty()) {
             String fileName = requestTarget.replace("/files/", "");
             if (method.equals("GET")) {
                 String fileContents = this.getFileContents(fileName);
                 if (fileContents == null) {
-                    this.notFoundResponseHandler();
+                    this.notFoundResponseHandler(keepAlive);
                     return keepAlive;
                 }
-                this.successResponseHandler(fileContents, "application/octet-stream", encoding);
+                this.successResponseHandler(fileContents, "application/octet-stream", encoding, keepAlive);
             } else if (method.equals("POST") && requestBody != null) {
                 this.createFile(fileName, requestBody);
                 this.createdResponseHandler();
             }
         } else {
-            this.notFoundResponseHandler();
+            this.notFoundResponseHandler(keepAlive);
         }
 
 

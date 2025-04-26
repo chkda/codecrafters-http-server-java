@@ -38,17 +38,21 @@ public class ResponseHandler implements Runnable {
         this.writer.flush();
     }
 
+    byte[] gzipEncode(String content) throws IOException {
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        GZIPOutputStream gzipOutputStream = new GZIPOutputStream(byteArrayOutputStream);
+        gzipOutputStream.write(content.getBytes(StandardCharsets.UTF_8));
+        gzipOutputStream.close();
+        return byteArrayOutputStream.toByteArray();
+    }
+
     void successResponseHandler(String body, String contentType, String encoding) throws IOException {
         byte[] bodyBytes = body.getBytes(StandardCharsets.UTF_8);
         String httpSuccessResponseWithBody = "HTTP/1.1 200 OK\r\n" +
                 "Content-Type: " + contentType + "\r\n";
         if (encoding != null && encoding.equals("gzip")) {
             httpSuccessResponseWithBody += "Content-Encoding: gzip" + "\r\n";
-            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-            GZIPOutputStream gzipOutputStream = new GZIPOutputStream(byteArrayOutputStream);
-            gzipOutputStream.write(bodyBytes);
-            gzipOutputStream.close();
-            bodyBytes = byteArrayOutputStream.toByteArray();
+            bodyBytes = this.gzipEncode(body);
         }
         httpSuccessResponseWithBody += "Content-Length: " + bodyBytes.length + "\r\n\r\n";
         this.writer.write(httpSuccessResponseWithBody.getBytes(StandardCharsets.UTF_8));

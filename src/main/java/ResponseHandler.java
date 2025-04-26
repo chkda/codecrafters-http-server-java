@@ -87,7 +87,15 @@ public class ResponseHandler implements Runnable {
             String method = parts[0];
             String requestTarget = parts[1];
             HashMap<String, String> headers = this.extractHeaders();
-            String encoding = headers.get("accept-encoding");
+            String encodingHeader = headers.get("accept-encoding");
+            String[] encodings = encodingHeader.replace(" ","").split(",");
+            String encoding = null;
+            for (String enc: encodings) {
+                if (enc.equals("gzip")) {
+                    encoding = enc;
+                    break;
+                }
+            }
             String requestBody = null;
             String contentLengthHeader = headers.get("content-length");
             int contentLength = 0;

@@ -1,4 +1,5 @@
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -6,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.zip.GZIPOutputStream;
 
 public class ResponseHandler implements Runnable {
 
@@ -42,6 +44,10 @@ public class ResponseHandler implements Runnable {
                 "Content-Type: " + contentType + "\r\n";
         if (encoding != null && encoding.equals("gzip")) {
             httpSuccessResponseWithBody += "Content-Encoding: gzip" + "\r\n";
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+            GZIPOutputStream gzipOutputStream = new GZIPOutputStream(byteArrayOutputStream);
+            gzipOutputStream.write(bodyBytes);
+            bodyBytes = byteArrayOutputStream.toByteArray();
         }
         httpSuccessResponseWithBody += "Content-Length: " + bodyBytes.length + "\r\n\r\n";
         this.writer.write(httpSuccessResponseWithBody.getBytes(StandardCharsets.UTF_8));

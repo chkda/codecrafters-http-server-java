@@ -49,7 +49,7 @@ public class ResponseHandler implements Runnable {
 
     void successResponseHandler(boolean connAlive) throws IOException {
         String httpSuccessResponse = "HTTP/1.1 200 OK\r\n";
-        if (connAlive) {
+        if (!connAlive) {
             httpSuccessResponse += "Connection: close\r\n\r\n";
         } else {
             httpSuccessResponse += "\r\n";
@@ -60,7 +60,7 @@ public class ResponseHandler implements Runnable {
 
     void notFoundResponseHandler(boolean connAlive) throws IOException {
         String httpNotFoundResponse = "HTTP/1.1 404 Not Found\r\n";
-        if (connAlive) {
+        if (!connAlive) {
             httpNotFoundResponse += "Connection: close\r\n\r\n";
         } else {
             httpNotFoundResponse += "\r\n";

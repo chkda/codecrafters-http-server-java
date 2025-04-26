@@ -81,9 +81,9 @@ public class ResponseHandler implements Runnable {
         byte[] bodyBytes = body.getBytes(StandardCharsets.UTF_8);
         String httpSuccessResponseWithBody = "HTTP/1.1 200 OK\r\n" +
                 "Content-Type: " + contentType + "\r\n";
-        if (connAlive) {
+        if (!connAlive) {
             httpSuccessResponseWithBody += "Connection: close\r\n";
-        }
+        } 
         if (encoding != null && encoding.equals("gzip")) {
             httpSuccessResponseWithBody += "Content-Encoding: gzip" + "\r\n";
             bodyBytes = this.gzipEncode(body);

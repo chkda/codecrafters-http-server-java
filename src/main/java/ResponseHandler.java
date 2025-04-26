@@ -38,7 +38,7 @@ public class ResponseHandler implements Runnable {
             if (this.clientSocket != null) {
                 try {
                     this.clientSocket.close();
-                    System.out.println("client socker closed.");
+//                    System.out.println("client socker closed.");
                 } catch (IOException e) {
                     System.out.println("IOException: " + e.getMessage());
                 }

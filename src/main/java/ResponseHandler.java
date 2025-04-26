@@ -88,12 +88,15 @@ public class ResponseHandler implements Runnable {
             String requestTarget = parts[1];
             HashMap<String, String> headers = this.extractHeaders();
             String encodingHeader = headers.get("accept-encoding");
-            String[] encodings = encodingHeader.replace(" ","").split(",");
             String encoding = null;
-            for (String enc: encodings) {
-                if (enc.equals("gzip")) {
-                    encoding = enc;
-                    break;
+
+            if (encodingHeader != null) {
+                String[] encodings = encodingHeader.replace(" ", "").split(",");
+                for (String enc : encodings) {
+                    if (enc.equals("gzip")) {
+                        encoding = enc;
+                        break;
+                    }
                 }
             }
             String requestBody = null;

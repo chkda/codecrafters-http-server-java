@@ -1,12 +1,11 @@
-import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
+import java.io.*;
+import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.logging.SocketHandler;
 import java.util.zip.GZIPOutputStream;
 
 public class ResponseHandler implements Runnable {
@@ -14,16 +13,38 @@ public class ResponseHandler implements Runnable {
     BufferedReader reader;
     OutputStream writer;
     String directoryPath;
+    Socket clientSocket;
 
-    public ResponseHandler(BufferedReader reader, OutputStream writer, String directoryPath) {
-        this.reader = reader;
-        this.writer = writer;
+    public ResponseHandler(Socket clientSocket, String directoryPath) {
+        this.clientSocket = clientSocket;
         this.directoryPath = directoryPath;
     }
 
     @Override
     public void run() {
-        this.responseHandler();
+        try {
+            while (true) {
+                InputStream inputStream = this.clientSocket.getInputStream();
+                InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
+                BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
+                OutputStream outputStream = this.clientSocket.getOutputStream();
+                this.reader = bufferedReader;
+                this.writer = outputStream;
+                this.responseHandler();
+            }
+        } catch (IOException e) {
+            System.out.println("IOException: " + e.getMessage());
+        } finally {
+            if (this.clientSocket != null) {
+                try {
+                    this.clientSocket.close();
+                    System.out.println("client socker closed.");
+                } catch (IOException e) {
+                    System.out.println("IOException: " + e.getMessage());
+                }
+            }
+        }
+//        this.responseHandler();
     }
 
     void successResponseHandler() throws IOException {
@@ -81,88 +102,86 @@ public class ResponseHandler implements Runnable {
         return hashMap;
     }
 
-    void responseHandler() {
-        try {
-            String requestLine = this.reader.readLine();
-            if (requestLine == null || requestLine.isEmpty()) {
+    void responseHandler() throws IOException {
+
+        String requestLine = this.reader.readLine();
+        if (requestLine == null || requestLine.isEmpty()) {
+            this.notFoundResponseHandler();
+            return;
+        }
+
+        String[] parts = requestLine.split(" ");
+        if (parts.length < 2) {
+            this.notFoundResponseHandler();
+            return;
+        }
+
+        String method = parts[0];
+        String requestTarget = parts[1];
+        HashMap<String, String> headers = this.extractHeaders();
+        String encodingHeader = headers.get("accept-encoding");
+        String encoding = null;
+
+        if (encodingHeader != null) {
+            String[] encodings = encodingHeader.replace(" ", "").split(",");
+            for (String enc : encodings) {
+                if (enc.equals("gzip")) {
+                    encoding = enc;
+                    break;
+                }
+            }
+        }
+        String requestBody = null;
+        String contentLengthHeader = headers.get("content-length");
+        int contentLength = 0;
+
+        if (contentLengthHeader != null) {
+            try {
+                contentLength = Integer.parseInt(contentLengthHeader);
+            } catch (NumberFormatException e) {
                 this.notFoundResponseHandler();
                 return;
             }
+        }
 
-            String[] parts = requestLine.split(" ");
-            if (parts.length < 2) {
-                this.notFoundResponseHandler();
-                return;
-            }
-
-            String method = parts[0];
-            String requestTarget = parts[1];
-            HashMap<String, String> headers = this.extractHeaders();
-            String encodingHeader = headers.get("accept-encoding");
-            String encoding = null;
-
-            if (encodingHeader != null) {
-                String[] encodings = encodingHeader.replace(" ", "").split(",");
-                for (String enc : encodings) {
-                    if (enc.equals("gzip")) {
-                        encoding = enc;
-                        break;
-                    }
-                }
-            }
-            String requestBody = null;
-            String contentLengthHeader = headers.get("content-length");
-            int contentLength = 0;
-
-            if (contentLengthHeader != null) {
-                try {
-                    contentLength = Integer.parseInt(contentLengthHeader);
-                } catch (NumberFormatException e) {
-                    this.notFoundResponseHandler();
-                    return;
-                }
-            }
-
-            if (method.equals("POST") && contentLength > 0) {
-                char[] bodyChars = new char[contentLength];
-                int charsRead = this.reader.read(bodyChars, 0, contentLength);
-                if (charsRead == contentLength) {
-                    requestBody = new String(bodyChars);
-                } else {
-                    this.notFoundResponseHandler();
-                    return;
-                }
-            }
-
-            if (requestTarget == null) {
-                this.notFoundResponseHandler();
-            } else if (requestTarget.equals("/")) {
-                this.successResponseHandler();
-            } else if (requestTarget.startsWith("/echo/")) {
-                String endpoint = requestTarget.replace("/echo/", "");
-                this.successResponseHandler(endpoint, "text/plain", encoding);
-            } else if (requestTarget.equals("/user-agent") && headers.containsKey("user-agent")) {
-                String header = headers.get("user-agent");
-                this.successResponseHandler(header, "text/plain", encoding);
-            } else if (requestTarget.startsWith("/files/") && !requestTarget.replace("/files/", "").isEmpty()) {
-                String fileName = requestTarget.replace("/files/", "");
-                if (method.equals("GET")) {
-                    String fileContents = this.getFileContents(fileName);
-                    if (fileContents == null) {
-                        this.notFoundResponseHandler();
-                        return;
-                    }
-                    this.successResponseHandler(fileContents, "application/octet-stream", encoding);
-                } else if (method.equals("POST") && requestBody != null) {
-                    this.createFile(fileName, requestBody);
-                    this.createdResponseHandler();
-                }
+        if (method.equals("POST") && contentLength > 0) {
+            char[] bodyChars = new char[contentLength];
+            int charsRead = this.reader.read(bodyChars, 0, contentLength);
+            if (charsRead == contentLength) {
+                requestBody = new String(bodyChars);
             } else {
                 this.notFoundResponseHandler();
+                return;
             }
-        } catch (IOException e) {
-            System.out.println("IOException: " + e.getMessage());
         }
+
+        if (requestTarget == null) {
+            this.notFoundResponseHandler();
+        } else if (requestTarget.equals("/")) {
+            this.successResponseHandler();
+        } else if (requestTarget.startsWith("/echo/")) {
+            String endpoint = requestTarget.replace("/echo/", "");
+            this.successResponseHandler(endpoint, "text/plain", encoding);
+        } else if (requestTarget.equals("/user-agent") && headers.containsKey("user-agent")) {
+            String header = headers.get("user-agent");
+            this.successResponseHandler(header, "text/plain", encoding);
+        } else if (requestTarget.startsWith("/files/") && !requestTarget.replace("/files/", "").isEmpty()) {
+            String fileName = requestTarget.replace("/files/", "");
+            if (method.equals("GET")) {
+                String fileContents = this.getFileContents(fileName);
+                if (fileContents == null) {
+                    this.notFoundResponseHandler();
+                    return;
+                }
+                this.successResponseHandler(fileContents, "application/octet-stream", encoding);
+            } else if (method.equals("POST") && requestBody != null) {
+                this.createFile(fileName, requestBody);
+                this.createdResponseHandler();
+            }
+        } else {
+            this.notFoundResponseHandler();
+        }
+
     }
 
     String getFileContents(String fileName) throws IOException {

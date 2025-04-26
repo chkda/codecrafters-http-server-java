@@ -30,13 +30,7 @@ public class Main {
 
             while (true){
                 clientSocket = serverSocket.accept(); // Wait for connection from client.
-                InputStream inputStream = clientSocket.getInputStream();
-                InputStreamReader inputStreamReader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
-                BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
-
-                OutputStream outputStream = clientSocket.getOutputStream();
-
-                ResponseHandler responseHandler = new ResponseHandler(bufferedReader, outputStream, directory);
+                ResponseHandler responseHandler = new ResponseHandler(clientSocket, directory);
 
                 Thread handlerThread = new Thread(responseHandler);
                 handlerThread.start();
@@ -46,15 +40,6 @@ public class Main {
 
         } catch (IOException e) {
             System.out.println("IOException: " + e.getMessage());
-        } finally {
-            if (clientSocket != null) {
-                try {
-                    clientSocket.close();
-                    System.out.println("client socker closed.");
-                } catch (IOException e) {
-                    System.out.println("IOException: " + e.getMessage());
-                }
-            }
         }
     }
 

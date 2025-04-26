@@ -36,11 +36,14 @@ public class ResponseHandler implements Runnable {
         this.writer.flush();
     }
 
-    void successResponseHandler(String body, String contentType) throws IOException {
+    void successResponseHandler(String body, String contentType, String encoding) throws IOException {
         byte[] bodyBytes = body.getBytes(StandardCharsets.UTF_8);
         String httpSuccessResponseWithBody = "HTTP/1.1 200 OK\r\n" +
-                "Content-Type: " + contentType + "\r\n" +
-                "Content-Length: " + bodyBytes.length + "\r\n\r\n";
+                "Content-Type: " + contentType + "\r\n";
+        if (encoding != null && encoding.equals("gzip")) {
+            httpSuccessResponseWithBody += "Content-Encoding: gzip" + "\r\n";
+        }
+        httpSuccessResponseWithBody += "Content-Length: " + bodyBytes.length + "\r\n\r\n";
         this.writer.write(httpSuccessResponseWithBody.getBytes(StandardCharsets.UTF_8));
         this.writer.write(bodyBytes);
         this.writer.flush();
@@ -84,6 +87,7 @@ public class ResponseHandler implements Runnable {
             String method = parts[0];
             String requestTarget = parts[1];
             HashMap<String, String> headers = this.extractHeaders();
+            String encoding = headers.get("accept-encoding");
             String requestBody = null;
             String contentLengthHeader = headers.get("content-length");
             int contentLength = 0;
@@ -114,16 +118,22 @@ public class ResponseHandler implements Runnable {
                 this.successResponseHandler();
             } else if (requestTarget.startsWith("/echo/")) {
                 String endpoint = requestTarget.replace("/echo/", "");
-                this.successResponseHandler(endpoint, "text/plain");
+                this.successResponseHandler(endpoint, "text/plain", encoding);
             } else if (requestTarget.equals("/user-agent") && headers.containsKey("user-agent")) {
                 String header = headers.get("user-agent");
-                this.successResponseHandler(header, "text/plain");
+                this.successResponseHandler(header, "text/plain", encoding);
             } else if (requestTarget.startsWith("/files/") && !requestTarget.replace("/files/", "").isEmpty()) {
                 String fileName = requestTarget.replace("/files/", "");
                 if (method.equals("GET")) {
-                    this.getFileContents(fileName);
+                    String fileContents = this.getFileContents(fileName);
+                    if (fileContents == null) {
+                        this.notFoundResponseHandler();
+                        return;
+                    }
+                    this.successResponseHandler(fileContents, "application/octet-stream", encoding);
                 } else if (method.equals("POST") && requestBody != null) {
                     this.createFile(fileName, requestBody);
+                    this.createdResponseHandler();
                 }
             } else {
                 this.notFoundResponseHandler();
@@ -133,14 +143,12 @@ public class ResponseHandler implements Runnable {
         }
     }
 
-    void getFileContents(String fileName) throws IOException {
+    String getFileContents(String fileName) throws IOException {
         Path filePath = Paths.get(this.directoryPath + fileName);
         if (Files.notExists(filePath)) {
-            this.notFoundResponseHandler();
-            return;
+            return null;
         }
-        String fileContents = Files.readString(filePath);
-        this.successResponseHandler(fileContents, "application/octet-stream");
+        return Files.readString(filePath);
     }
 
     void createFile(String filename, String fileContents) throws IOException {
@@ -148,6 +156,5 @@ public class ResponseHandler implements Runnable {
         Files.deleteIfExists(filePath);
         Files.createFile(filePath);
         Files.writeString(filePath, fileContents);
-        this.createdResponseHandler();
     }
 }

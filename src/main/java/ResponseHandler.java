@@ -47,7 +47,7 @@ public class ResponseHandler implements Runnable {
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
             GZIPOutputStream gzipOutputStream = new GZIPOutputStream(byteArrayOutputStream);
             gzipOutputStream.write(bodyBytes);
-            gzipOutputStream.flush();
+            gzipOutputStream.close();
             bodyBytes = byteArrayOutputStream.toByteArray();
         }
         httpSuccessResponseWithBody += "Content-Length: " + bodyBytes.length + "\r\n\r\n";
